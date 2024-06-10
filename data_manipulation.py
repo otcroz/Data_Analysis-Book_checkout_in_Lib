@@ -39,10 +39,19 @@ lib_borrow_seoul = lib_borrow_seoul[['LBRRY_CD', 'MBER_SEQ_NO_VALUE', 'LON_DE']]
 
 lib_borrow_seoul = lib_borrow_seoul.merge(borrow_counts, on=['MBER_SEQ_NO_VALUE', 'LON_DE'], how='left')
 
+# 겹치는 회원번호, 날짜 drop 처리
+lib_borrow_seoul = lib_borrow_seoul.drop_duplicates(subset=['MBER_SEQ_NO_VALUE', 'LON_DE'])
+
+# 해당 연도가 아닌 것 삭제
+lib_borrow_seoul['LON_DE'] = pd.to_datetime(lib_borrow_seoul['LON_DE'], errors='coerce')
+lib_borrow_seoul = lib_borrow_seoul[lib_borrow_seoul['LON_DE'].dt.year == 2023]
+
 # check
 print(lib_borrow_seoul.groupby(['MBER_SEQ_NO_VALUE', 'LON_DE'])['BORROW_COUNT'].count())
 print(pd.DataFrame((lib_borrow_seoul.groupby(['MBER_SEQ_NO_VALUE', 'LON_DE'])['BORROW_COUNT'])).shape)
 
+# export
+lib_borrow_seoul.to_csv('./clean_data/서울시_공공_대출내역_202312-4.csv', sep=',', index=False, encoding="utf-8-sig")
 
 
 # In[]
