@@ -102,7 +102,7 @@ combined_df.drop_duplicates(subset=['LBRRY_CD', 'MBER_SEQ_NO_VALUE', 'LON_DE'], 
 print(combined_df)
 
 combined_df_count = combined_df.groupby([
-    'LBRRY_CD', 'LON_DE', 'YEAR', 'MONTH', 'DAY', 'WEEKDAY'])['MBER_SEQ_NO_VALUE'].count().reset_index().rename(columns={'MBER_SEQ_NO_VALUE': 'COUNT'})
+    'LBRRY_CD', 'ONE_AREA_NM', 'TWO_AREA_NM',  'LON_DE', 'YEAR', 'MONTH', 'DAY', 'WEEKDAY'])['MBER_SEQ_NO_VALUE'].count().reset_index().rename(columns={'MBER_SEQ_NO_VALUE': 'COUNT'})
 
 # 필요없는 컬럼 drop
 combined_df_count.info()
@@ -112,9 +112,11 @@ combined_df_count.drop('MBER_SEQ_NO_VALUE', inplace=True)
 combined_df_count.to_csv('./clean_data/서울시_공공도서관_일별대출횟수_2023.csv', sep=',', index=False, encoding="utf-8-sig")
 
 # In[] 기상요소, 인구밀집 관련 데이터 합치기
-precipitation_seoul_data = pd.read_csv('./raw_data/서울시_일별강수량_2021-2023.csv', encoding="cp949")
-temp_seoul_data = pd.read_csv('./raw_data/서울시_일별기온_2021-2023.csv', encoding="cp949")
-humidity_seoul_data = pd.read_csv('./raw_data/서울시_일별습도_2021-2023.csv', encoding="cp949")
+precipitation_seoul_data = pd.read_csv('./raw_data/서울시_일별강수량_2023.csv', encoding="cp949")
+temp_seoul_data = pd.read_csv('./raw_data/서울시_일별기온_2023.csv', encoding="cp949")
+humidity_seoul_data = pd.read_csv('./raw_data/서울시_일별습도_2023.csv', encoding="cp949")
+wind_seoul_data = pd.read_csv('./raw_data/서울시_일별풍속_2023.csv', encoding="cp949")
+
 air_poll_seoul_data = pd.read_csv('./raw_data/일별평균대기오염도_2023.csv', encoding="cp949")
 person_dens_seoul_data = pd.read_csv('./raw_data/서울시_인구밀도_2021-2023.csv', encoding="utf-8")
 
@@ -125,28 +127,63 @@ precipitation_seoul_data = precipitation_seoul_data[['일시', '강수량(mm)']]
 # temp_seoul_data
 temp_seoul_data.info()
 temp_seoul_data = temp_seoul_data[['일시', '평균기온(℃)', '최고기온(℃)', '최저기온(℃)']]
+temp_seoul_data
 # humidity_seoul_data
 humidity_seoul_data.info()
 humidity_seoul_data = humidity_seoul_data[['일시', '평균습도(%rh)']]
+# wind_seoul_data
+wind_seoul_data.info()
+wind_seoul_data = wind_seoul_data[['일시', '평균풍속(m/s)']]
+# person_dens_seoul_data
+person_dens_seoul_data.info()
+person_dens_seoul_data = person_dens_seoul_data[['구', '2023']]
+person_dens_seoul_data[person_dens_seoul_data.구 != '소계']
+person_dens_seoul_data.rename(columns={'2023': '인구밀도'}, inplace=True)
 # air_poll_seoul_data
 air_poll_seoul_data.info()
 air_poll_seoul_data = air_poll_seoul_data[['측정일시','측정소명','미세먼지농도(㎍/㎥)', '초미세먼지농도(㎍/㎥)']]
 air_poll_seoul_data.rename(columns={'측정소명': '구'}, inplace=True)
-air_poll_seoul_data.측정일시 = pd.to_datetime(air_poll_seoul_data.측정일시, errors='coerce').dt.date
-# person_dens_seoul_data
-person_dens_seoul_data.info()
-person_dens_seoul_data = person_dens_seoul_data[['구', '2023']]
-person_dens_seoul_data.rename(columns={'2023': '인구밀도'}, inplace=True)
+air_poll_seoul_data.측정일시 = pd.to_datetime(air_poll_seoul_data.측정일시, format='%Y%m%d', errors='coerce').dt.date
+air_poll_seoul_data = air_poll_seoul_data[air_poll_seoul_data.구.isin(person_dens_seoul_data.구)]
+
 
 ## 데이터 merge ##
-weather_seoul_data = pd.merge(precipitation_seoul_data, temp_seoul_data, on='일시', how='outer')
-weather_seoul_data = pd.merge(weather_seoul_data, temp_seoul_data, on='일시', how='outer')
-weather_seoul_data = pd.merge(humidity_seoul_data, temp_seoul_data, on='일시', how='outer')
-
+weather_seoul_data = pd.merge(humidity_seoul_data, precipitation_seoul_data, on='일시', how='outer')
+weather_seoul_data = pd.merge(temp_seoul_data, weather_seoul_data, on='일시', how='outer')
+weather_seoul_data = pd.merge(wind_seoul_data, weather_seoul_data, on='일시', how='outer')
 air_person_seoul_data = pd.merge(air_poll_seoul_data, person_dens_seoul_data, on='구', how='outer')
-air_person_seoul_data = air_person_seoul_data.loc[0:18249] # 필요없는 데이터 제거
+weather_seoul_data.info()
+air_person_seoul_data.info()
+
+# null 값 drop
+weather_seoul_data.dropna(subset=['일시'], inplace=True)
+air_person_seoul_data.dropna(subset=['측정일시'], inplace=True)
 
 weather_seoul_data.to_csv('./clean_data/기상데이터_2023.csv', sep=',', index=False, encoding="utf-8-sig")
 air_person_seoul_data.to_csv('./clean_data/인구밀집_대기_2023.csv', sep=',', index=False, encoding="utf-8-sig")
 
-# In[]
+# In[] 도서 일별대출횟수 데이터와 기상 데이터, 인구밀집_미세먼지 데이터 병합
+today_borrow_count_data = pd.read_csv('./clean_data/서울시_공공도서관_일별대출횟수_2023.csv', encoding='utf-8')
+weather_seoul_data = pd.read_csv('./clean_data/기상데이터_2023.csv', encoding='utf-8')
+air_person_seoul_data = pd.read_csv('./clean_data/인구밀집_대기_2023.csv', encoding='utf-8')
+
+# 데이터 확인
+today_borrow_count_data.info()
+weather_seoul_data.info()
+air_person_seoul_data.info()
+
+# 컬럼 이름 수정
+today_borrow_count_data.rename(columns={'LBRRY_CD': '도서관코드','LON_DE': '날짜', 'YEAR': '연도', 'MONTH': '월', 'DAY': '일', 
+                                        'WEEKDAY': '요일', 'COUNT':"대출인원수", "ONE_AREA_NM": "시", "TWO_AREA_NM": "구" }, inplace=True)
+weather_seoul_data.rename(columns={'일시': '날짜', '평균습도(%rh)': '평균습도', '평균기온(℃)': '평균기온', 
+                                   '최고기온(℃)' :'최고기온', '최저기온(℃)':'최저기온', '강수량(mm)': '강수량'} ,inplace=True)
+air_person_seoul_data.rename(columns={'측정일시': '날짜', '미세먼지농도(㎍/㎥)':'미세먼지농도', '초미세먼지농도(㎍/㎥)': '초미세먼지농도'}, inplace=True)
+
+# 결측치 처리
+weather_seoul_data.강수량.fillna(0, inplace=True)
+weather_seoul_data.head()
+
+# 데이터 병합
+#conbine_data.info()
+#conbine_data = pd.merge(today_borrow_count_data, air_person_seoul_data, on=['날짜','구'], how='outer')
+#conbine_data = pd.merge(conbine_data, weather_seoul_data, on=['날짜','구'], how='outer')
