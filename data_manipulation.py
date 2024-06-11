@@ -21,7 +21,7 @@ lib_info_seoul_data.to_csv('./clean_data/서울시_공공_도서관_정보.csv',
 
 
 # In[] 도서관 대출내역 불러오기
-file_date = '202305-2'
+file_date = '202312-1'
 # C:/Users/dbtnd/Downloads/NL_CO_LOAN_PUB_202302-16.csv
 lib_borrow = pd.read_csv('C:/Users/dbtnd/Downloads/NL_CO_LOAN_PUB_' + file_date +'.csv', encoding="utf-8")
 lib_info_seoul_data = pd.read_csv('./clean_data/서울시_공공_도서관_정보.csv', encoding="utf-8")
@@ -44,8 +44,8 @@ lib_borrow_seoul = lib_borrow_seoul.merge(borrow_counts, on=['MBER_SEQ_NO_VALUE'
 lib_borrow_seoul = lib_borrow_seoul.drop_duplicates(subset=['MBER_SEQ_NO_VALUE', 'LON_DE'])
 
 # 서울시, 구 추가
-lib_borrow_seoul['ONE_AREA_NM'] = lib_info_seoul_data['ONE_AREA_NM']
-lib_borrow_seoul['TWO_AREA_NM'] = lib_info_seoul_data['TWO_AREA_NM']
+#lib_borrow_seoul['ONE_AREA_NM'] = lib_info_seoul_data['ONE_AREA_NM']
+#lib_borrow_seoul['TWO_AREA_NM'] = lib_info_seoul_data['TWO_AREA_NM']
 
 # 해당 연도가 아닌 것 삭제
 lib_borrow_seoul['LON_DE'] = pd.to_datetime(lib_borrow_seoul['LON_DE'], errors='coerce')
@@ -77,6 +77,7 @@ else: print('no data!')
 # In[] 1차 가공했던 도서관 대출 내역 concat, 특정 날짜에 도서관에 대출한 사람 수 grouping
 
 folder_path = './clean_data/public_library'
+lib_info_seoul_data = pd.read_csv('./clean_data/서울시_공공_도서관_정보.csv', encoding="utf-8")
 
 # 폴더 내의 모든 CSV 파일을 읽어서 데이터프레임으로 합치기
 df_list = []
@@ -84,10 +85,15 @@ for filename in os.listdir(folder_path):
     if filename.endswith('.csv'):
         file_path = os.path.join(folder_path, filename)
         df = pd.read_csv(file_path)
+
         df_list.append(df)
 
 # 모든 데이터프레임을 하나로 합치기
 combined_df = pd.concat(df_list, ignore_index=True)
+
+# 서울시, 구 추가
+combined_df['ONE_AREA_NM'] = combined_df['LBRRY_CD'].map(lib_info_seoul_data.set_index('LBRRY_CD')['ONE_AREA_NM'])
+combined_df['TWO_AREA_NM'] = combined_df['LBRRY_CD'].map(lib_info_seoul_data.set_index('LBRRY_CD')['TWO_AREA_NM'])
 
 # 중복된 행 삭제
 combined_df.drop_duplicates(subset=['LBRRY_CD', 'MBER_SEQ_NO_VALUE', 'LON_DE'], inplace=True)
@@ -98,8 +104,12 @@ print(combined_df)
 combined_df_count = combined_df.groupby([
     'LBRRY_CD', 'LON_DE', 'YEAR', 'MONTH', 'DAY', 'WEEKDAY'])['MBER_SEQ_NO_VALUE'].count().reset_index().rename(columns={'MBER_SEQ_NO_VALUE': 'COUNT'})
 
+# 필요없는 컬럼 drop
+combined_df_count.info()
+combined_df_count.drop('MBER_SEQ_NO_VALUE', inplace=True)
+
 # 특정 날짜에 대출한 사람 수
-lib_borrow_seoul.to_csv('./clean_data/public_library/서울시_공공_대출내역_202312-1.csv', sep=',', index=False, encoding="utf-8-sig")
+combined_df_count.to_csv('./clean_data/서울시_공공도서관_일별대출횟수_2023.csv', sep=',', index=False, encoding="utf-8-sig")
 
 # In[] 기상요소, 인구밀집 관련 데이터 합치기
 precipitation_seoul_data = pd.read_csv('./raw_data/서울시_일별강수량_2021-2023.csv', encoding="cp949")
