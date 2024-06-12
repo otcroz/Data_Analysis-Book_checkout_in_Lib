@@ -176,14 +176,26 @@ air_person_seoul_data.info()
 today_borrow_count_data.rename(columns={'LBRRY_CD': '도서관코드','LON_DE': '날짜', 'YEAR': '연도', 'MONTH': '월', 'DAY': '일', 
                                         'WEEKDAY': '요일', 'COUNT':"대출인원수", "ONE_AREA_NM": "시", "TWO_AREA_NM": "구" }, inplace=True)
 weather_seoul_data.rename(columns={'일시': '날짜', '평균습도(%rh)': '평균습도', '평균기온(℃)': '평균기온', 
-                                   '최고기온(℃)' :'최고기온', '최저기온(℃)':'최저기온', '강수량(mm)': '강수량'} ,inplace=True)
+                                   '최고기온(℃)' :'최고기온', '최저기온(℃)':'최저기온', '강수량(mm)': '강수량', '평균풍속(m/s)': '평균풍속'} ,inplace=True)
 air_person_seoul_data.rename(columns={'측정일시': '날짜', '미세먼지농도(㎍/㎥)':'미세먼지농도', '초미세먼지농도(㎍/㎥)': '초미세먼지농도'}, inplace=True)
 
 # 결측치 처리
 weather_seoul_data.강수량.fillna(0, inplace=True)
+weather_seoul_data.평균풍속.fillna(0, inplace=True)
 weather_seoul_data.head()
 
+# 날짜 데이터 형식 통일
+today_borrow_count_data.날짜 = pd.to_datetime(today_borrow_count_data.날짜, errors='coerce').dt.date
+air_person_seoul_data.날짜 = pd.to_datetime(air_person_seoul_data.날짜, errors='coerce').dt.date
+
+# 공백 제거 및 대소문자 통일
+today_borrow_count_data['구'] = today_borrow_count_data['구'].str.strip().str.upper()
+air_person_seoul_data['구'] = air_person_seoul_data['구'].str.strip().str.upper()
+
 # 데이터 병합
-#conbine_data.info()
-#conbine_data = pd.merge(today_borrow_count_data, air_person_seoul_data, on=['날짜','구'], how='outer')
-#conbine_data = pd.merge(conbine_data, weather_seoul_data, on=['날짜','구'], how='outer')
+conbine_data = pd.merge(today_borrow_count_data, air_person_seoul_data, on=['날짜', '구'])
+conbine_data = pd.merge(conbine_data, weather_seoul_data, on=['날짜'])
+conbine_data.sort_values(by='날짜', inplace=True)
+
+# 데이터 저장
+conbine_data.to_csv('./clean_data/도서_일별대출횟수_기상정보_2023.csv', sep=',', index=False, encoding="utf-8-sig")
