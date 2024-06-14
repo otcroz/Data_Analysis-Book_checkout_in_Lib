@@ -182,11 +182,15 @@ air_person_seoul_data.rename(columns={'측정일시': '날짜', '미세먼지농
 # 결측치 처리
 weather_seoul_data.강수량.fillna(0, inplace=True)
 weather_seoul_data.평균풍속.fillna(0, inplace=True)
+air_person_seoul_data.미세먼지농도.fillna(0, inplace=True)
+air_person_seoul_data.초미세먼지농도.fillna(0, inplace=True)
 weather_seoul_data.head()
+data.isnull().sum() # 결측값 여부 확인
 
 # 날짜 데이터 형식 통일
 today_borrow_count_data.날짜 = pd.to_datetime(today_borrow_count_data.날짜, errors='coerce').dt.date
 air_person_seoul_data.날짜 = pd.to_datetime(air_person_seoul_data.날짜, errors='coerce').dt.date
+weather_seoul_data.날짜 = pd.to_datetime(weather_seoul_data.날짜, errors='coerce').dt.date
 
 # 공백 제거 및 대소문자 통일
 today_borrow_count_data['구'] = today_borrow_count_data['구'].str.strip().str.upper()
