@@ -9,7 +9,24 @@ data.info()
 
 # In[] 데이터 처리: 도봉구 공공도서관으로 모델 구축
 data = data[data.구 == '도봉구']
-data.도서관코드.unique() # 9곳의 도서관
+data.도서관코드.unique() # 9곳의 도서c관
+
+holidays_korea_2023 = [
+    '2023-01-01',  # 신정
+    '2023-02-01',  # 설날
+    '2023-02-02',  # 설날 대체공휴일
+    '2023-03-01',  # 삼일절
+    '2023-05-05',  # 어린이날
+    '2023-05-07',  # 부처님 오신 날
+    '2023-06-06',  # 현충일
+    '2023-08-15',  # 광복절
+    '2023-09-09',  # 추석 연휴
+    '2023-10-03',  # 개천절
+    '2023-10-09',  # 한글날
+    '2023-12-25',  # 크리스마스
+]
+
+data = data[~data.날짜.isin(holidays_korea_2023)]
 
 # In[] 데이터 인코딩: 요일
 
@@ -21,7 +38,9 @@ data.요일.replace('금', 4, inplace=True)
 data.요일.replace('토', 5, inplace=True)
 data.요일.replace('일', 6, inplace=True)
 
-data.요일.astype('object')
+data.월 = data.월.astype('object')
+data.일 = data.일.astype('object')
+data.요일 = data.요일.astype('object')
 
 # In[] 데이터 이상치 처리
 import matplotlib.pyplot as plt
@@ -80,14 +99,14 @@ IQR_humi = Q3_humi-Q1_humi
 cond_borrow = (data['대출인원수']<Q3_borrow+IQR_borrow*1.5)& (data['대출인원수']>Q1_borrow-IQR_borrow*1.5)
 cond_dust = (data['미세먼지농도']<Q3_dust+IQR_dust*1.5)& (data['미세먼지농도']>Q1_dust-IQR_dust*1.5)
 cond_dust_small = (data['초미세먼지농도']<Q3_dust_small+IQR_dust_small*1.5)& (data['초미세먼지농도']>Q1_dust_small-IQR_dust_small*1.5)
-cond_wind = (data['평균풍속']<Q3_wind+IQR_wind*1.5)& (data['평균풍속']>Q1_wind-IQR_wind*1.5)
+#cond_wind = (data['평균풍속']<Q3_wind+IQR_wind*1.5)& (data['평균풍속']>Q1_wind-IQR_wind*1.5)
 cond_temp = (data['평균기온']<Q3_temp+IQR_temp*1.5)& (data['평균기온']>Q1_temp-IQR_temp*1.5)
 cond_temp_h = (data['최고기온']<Q3_temp_h+IQR_temp_h*1.5)& (data['최고기온']>Q1_temp_h-IQR_temp_h*1.5)
 cond_temp_l = (data['최저기온']<Q3_temp_l+IQR_temp_l*1.5)& (data['최저기온']>Q1_temp_l-IQR_temp_l*1.5)
 cond_humi = (data['평균습도']<Q3_humi+IQR_humi*1.5)& (data['평균습도']>Q1_humi-IQR_humi*1.5)
 
 # 이상치를 뺀 데이터 출력하기
-data_IQR=data[cond_borrow & cond_dust & cond_dust_small & cond_wind & cond_temp & cond_temp_h & cond_temp_l & cond_humi]
+data_IQR=data[cond_borrow & cond_dust & cond_dust_small & cond_temp & cond_temp_h & cond_temp_l & cond_humi]
 data_IQR.boxplot(column='대출인원수', return_type='both')
 
 # In[] 도서관별로 데이터를 나누어서 저장하기
@@ -96,11 +115,14 @@ filter_data = data_IQR[['도서관코드','월','일','요일','미세먼지농�
 
 grouped_data = filter_data.groupby('도서관코드')
 
-# 딕셔너리로 도서관별 데이터셋
+# 딕셔너리로 도서관별 데이터 저장
+lib_code_arr = []
 lib_data_dict = {}
 for library_code, group in grouped_data:
+    lib_code_arr.append(library_code)
     lib_data_dict[library_code] = group
 
+# test
 for library_code, data in lib_data_dict.items():
     print(f"Library Code: {library_code}")
     print(data.head())  # 각 그룹의 첫 5개 행을 출력
@@ -123,41 +145,43 @@ plt.rcParams['axes.unicode_minus'] =False
 #plt.show()
 #filter_data.info()
 
-# 2) 변수별 히스토그램을 통해 데이터 분포 확인
+# 2) 변수별 히스토그램을 통해 도봉구 도서관 데이터 분포 확인
 filter_data.hist(bins=50, figsize=(20,15))
 
+# In[] 3) 특정 도서관에 대해 상관관계 분석
+# 상관관계 분석 및 히트맵으로 시각화
+heatmap_data = lib_data_dict[lib_code_arr[0]].drop(columns=['도서관코드'])
+res_corr = heatmap_data.corr(method = 'pearson')
+colormap = plt.cm.RdBu
+plt.figure(figsize=(10, 8), dpi=100)
+sns.heatmap(res_corr, linewidths = 0.1, vmax = 1.0, 
+            square = True, cmap = colormap, linecolor = 'white', annot=True,
+            annot_kws={"size": 10, "color": 'black'}, 
+            fmt='.2f')
+plt.title('변수의 상관관계', size=16)
+plt.show()
 
-# 3) 상관관계 분석
-filter_data = filter_data.corr(method = 'pearson', numeric_only=1)
+# 상관관계 분석 및 산점도로 시각화
+sns.pairplot(heatmap_data, hue='대출인원수')
+
+# In[2] 데이터 분할
+from sklearn.model_selection import train_test_split
+# '구'
+X = filter_data[['월','일','요일','미세먼지농도','초미세먼지농도','평균기온','최고기온','최저기온','강수량']]
+Y = filter_data[['대출인원수']]
+
 filter_data.info()
-print(filter_data)
-#data_corr.to_csv('./data_corr.csv', index = False, encoding='utf-8-sig')
+X_train_val, X_test, Y_train_val, Y_test = train_test_split(X, Y, test_size=0.3, random_state=10)
+X_train, X_val, Y_train, Y_val = train_test_split(X_train_val, Y_train_val, test_size=0.3, random_state=10)
 
-# 히트맵 확인
-heatmap_data = filter_data
-colormap = plt.cm.RdBu
-sns.heatmap(heatmap_data.astype(float).corr(), linewidths = 0.1, vmax
-        = 1.0, square = True, cmap = colormap, linecolor = 'white', annot = True,
-        annot_kws = {"size": 10})
-plt.show()
+# In[4-1] 데이터 스케일링: StandardScaler
+from sklearn.preprocessing import MinMaxScaler, StandardScaler
 
-sns.set_style('dark')
-sns.distplot(red_wine_quality, kde = True, color = "red", label = 'red wine')
-sns.distplot(white_wine_quality, kde = True, label = 'white wine')
-plt.title("Quality of Wine Type")
-plt.legend()
-plt.show()
+ss = StandardScaler()
 
-# In[테스트] # 구로 그룹화
-
-
-heatmap_data = group_a.corr(method = 'pearson', numeric_only=1)
-colormap = plt.cm.RdBu
-sns.heatmap(heatmap_data.astype(float).corr(), linewidths = 0.1, vmax
-        = 1.0, square = True, cmap = colormap, linecolor = 'white', annot = True,
-        annot_kws = {"size": 10})
-plt.show()
-
+ss.fit_transform(X_train)
+ss.transform(X_val)
+ss.transform(X_test)
 
 # In[] 1. 모델: linear regression model
 from sklearn.linear_model import LinearRegression
@@ -169,11 +193,12 @@ scores = cross_val_score(lr, X_train, Y_train)
 print(scores.mean())
 
 lr.fit(X_train, Y_train)
+lr.score(X_train, Y_train)
 
 
 # In[] 1.2 모델 검증
-
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
+pred = lr.predict(X_val)
 MAE = mean_absolute_error(Y_val, pred)
 MSE = mean_squared_error(Y_val, pred)
 RMSE = np.sqrt(MSE)
@@ -184,7 +209,7 @@ print(MAE, MSE, RMSE, R2)
 # In[] 1.3. 모델 테스트
 
 pred = lr.predict(X_test)
-print(pred_dtr)
+print(pred.round())
 
 # In[] 2. 모델: decision tree regression
 
@@ -363,3 +388,13 @@ for i, feature in enumerate(x_features):
 pred_lr = lr.predict(X_test)
 
 pred_rfr = rfr.predict(X_test)
+
+# In[] 예측하기
+
+# 구를 입력하기
+
+# 도서관 목록 보여주면서 도서관 입력 유도
+
+# 특정 도서관에 대한 기상요건 입력
+
+# 예측 후 출력
