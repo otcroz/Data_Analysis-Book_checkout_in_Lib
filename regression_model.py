@@ -3,10 +3,15 @@ import pandas as pd
 import numpy as np
 
 data = pd.read_csv('./clean_data/도서_일별대출횟수_기상정보_2023.csv', encoding='utf-8')
+data = pd.DataFrame(data)
 data.info()
 #data.describe()
 
-# In[] 데이터 인코딩
+# In[] 데이터 처리: 도봉구 공공도서관으로 모델 구축
+data = data[data.구 == '도봉구']
+data.도서관코드.unique() # 9곳의 도서관
+
+# In[] 데이터 인코딩: 요일
 
 data.요일.replace('월', 0, inplace=True)
 data.요일.replace('화', 1, inplace=True)
@@ -15,6 +20,90 @@ data.요일.replace('목', 3, inplace=True)
 data.요일.replace('금', 4, inplace=True)
 data.요일.replace('토', 5, inplace=True)
 data.요일.replace('일', 6, inplace=True)
+
+data.요일.astype('object')
+
+# In[] 데이터 이상치 처리
+import matplotlib.pyplot as plt
+plt.rcParams['font.family'] ='Malgun Gothic'
+plt.rcParams['axes.unicode_minus'] =False
+
+# 1) 대출인원수 이상치 처리
+data.boxplot(column='대출인원수', return_type='both')
+Q1_borrow = data['대출인원수'].quantile(q=0.25)
+Q3_borrow = data['대출인원수'].quantile(q=0.75)
+IQR_borrow = Q3_borrow-Q1_borrow
+
+# 2) 미세먼지농도 이상치 처리
+data.boxplot(column='미세먼지농도', return_type='both')
+Q1_dust = data['미세먼지농도'].quantile(q=0.25)
+Q3_dust = data['미세먼지농도'].quantile(q=0.75)
+IQR_dust = Q3_dust-Q1_dust
+
+# 3) 초미세먼지농도 이상치 처리
+data.boxplot(column='초미세먼지농도', return_type='both')
+Q1_dust_small = data['초미세먼지농도'].quantile(q=0.25)
+Q3_dust_small = data['초미세먼지농도'].quantile(q=0.75)
+IQR_dust_small = Q3_dust_small-Q1_dust_small
+
+# 4) 평균풍속 이상치 처리
+#data.boxplot(column='평균풍속', return_type='both')
+#Q1_wind = data['평균풍속'].quantile(q=0.25)
+#Q3_wind = data['평균풍속'].quantile(q=0.75)
+#IQR_wind = Q3_wind-Q1_wind
+
+# 5) 평균기온 이상치 처리
+data.boxplot(column='평균기온', return_type='both')
+Q1_temp = data['평균기온'].quantile(q=0.25)
+Q3_temp = data['평균기온'].quantile(q=0.75)
+IQR_temp = Q3_temp-Q1_temp
+
+# 6) 최고기온 이상치 처리
+data.boxplot(column='최고기온', return_type='both')
+Q1_temp_h = data['최고기온'].quantile(q=0.25)
+Q3_temp_h = data['최고기온'].quantile(q=0.75)
+IQR_temp_h = Q3_temp_h-Q1_temp_h
+
+# 7) 최저기온 이상치 처리
+data.boxplot(column='최저기온', return_type='both')
+Q1_temp_l = data['최저기온'].quantile(q=0.25)
+Q3_temp_l = data['최저기온'].quantile(q=0.75)
+IQR_temp_l = Q3_temp_l-Q1_temp_l
+
+# 8) 평균습도 이상치 처리
+data.boxplot(column='평균습도', return_type='both')
+Q1_humi = data['평균습도'].quantile(q=0.25)
+Q3_humi = data['평균습도'].quantile(q=0.75)
+IQR_humi = Q3_humi-Q1_humi
+
+# 조건 처리
+cond_borrow = (data['대출인원수']<Q3_borrow+IQR_borrow*1.5)& (data['대출인원수']>Q1_borrow-IQR_borrow*1.5)
+cond_dust = (data['미세먼지농도']<Q3_dust+IQR_dust*1.5)& (data['미세먼지농도']>Q1_dust-IQR_dust*1.5)
+cond_dust_small = (data['초미세먼지농도']<Q3_dust_small+IQR_dust_small*1.5)& (data['초미세먼지농도']>Q1_dust_small-IQR_dust_small*1.5)
+cond_wind = (data['평균풍속']<Q3_wind+IQR_wind*1.5)& (data['평균풍속']>Q1_wind-IQR_wind*1.5)
+cond_temp = (data['평균기온']<Q3_temp+IQR_temp*1.5)& (data['평균기온']>Q1_temp-IQR_temp*1.5)
+cond_temp_h = (data['최고기온']<Q3_temp_h+IQR_temp_h*1.5)& (data['최고기온']>Q1_temp_h-IQR_temp_h*1.5)
+cond_temp_l = (data['최저기온']<Q3_temp_l+IQR_temp_l*1.5)& (data['최저기온']>Q1_temp_l-IQR_temp_l*1.5)
+cond_humi = (data['평균습도']<Q3_humi+IQR_humi*1.5)& (data['평균습도']>Q1_humi-IQR_humi*1.5)
+
+# 이상치를 뺀 데이터 출력하기
+data_IQR=data[cond_borrow & cond_dust & cond_dust_small & cond_wind & cond_temp & cond_temp_h & cond_temp_l & cond_humi]
+data_IQR.boxplot(column='대출인원수', return_type='both')
+
+# In[] 도서관별로 데이터를 나누어서 저장하기
+filter_data = data_IQR[['도서관코드','월','일','요일','미세먼지농도','초미세먼지농도','평균풍속','평균기온','최고기온','최저기온',
+                               '평균습도','강수량','대출인원수']]
+
+grouped_data = filter_data.groupby('도서관코드')
+
+# 딕셔너리로 도서관별 데이터셋
+lib_data_dict = {}
+for library_code, group in grouped_data:
+    lib_data_dict[library_code] = group
+
+for library_code, data in lib_data_dict.items():
+    print(f"Library Code: {library_code}")
+    print(data.head())  # 각 그룹의 첫 5개 행을 출력
 
 # In[] 데이터 시각화
 
@@ -25,18 +114,16 @@ import seaborn as sns
 plt.rcParams['font.family'] ='Malgun Gothic'
 plt.rcParams['axes.unicode_minus'] =False
 
-filter_data = data[['구','날짜','월','일','요일','미세먼지농도','초미세먼지농도',
-                               '인구밀도','평균풍속','평균기온','최고기온','최저기온',
-                               '평균습도','강수량','대출인원수']]
-
 # 2) 변수별 상관관계 확인
 
-# 특정 변수에 대한 데이터 분포 확인
-others = list(set(wine.columns).difference(set(["quality", "fixed_acidity"])))
-p, resids = sm.graphics.plot_partregress("quality", "fixed_acidity", others, data = wine, ret_coords = True)
-plt.show()
+# 특정 변수에 대한 데이터 분포와 상관관계 확인
+#import statsmodels.api as sm
+#3others = list(set(filter_data.columns).difference(set(["대출인원수", "요일"])))
+#p, resids = sm.graphics.plot_partregress("대출인원수", "요일", others, data = filter_data[:200], ret_coords = True)
+#plt.show()
+#filter_data.info()
 
-# 2) 변수별 히스토그램 확인
+# 2) 변수별 히스토그램을 통해 데이터 분포 확인
 filter_data.hist(bins=50, figsize=(20,15))
 
 
@@ -62,11 +149,7 @@ plt.legend()
 plt.show()
 
 # In[테스트] # 구로 그룹화
-grouped_data = filter_data.groupby('구')
 
-group_a = grouped_data.get_group('동작구')
-group_b = grouped_data.get_group('마포구')
-group_c = grouped_data.get_group('C')
 
 heatmap_data = group_a.corr(method = 'pearson', numeric_only=1)
 colormap = plt.cm.RdBu
@@ -75,29 +158,6 @@ sns.heatmap(heatmap_data.astype(float).corr(), linewidths = 0.1, vmax
         annot_kws = {"size": 10})
 plt.show()
 
-# In[2] 데이터 분할
-from sklearn.model_selection import train_test_split
-# '구'
-X = data[['월','일','요일','미세먼지농도','초미세먼지농도',
-                               '인구밀도','평균풍속','평균기온','최고기온','최저기온',
-                               '평균습도','강수량']]
-Y = data[['대출인원수']]
-
-X_train_val, X_test, Y_train_val, Y_test = train_test_split(X, Y, test_size=0.3, random_state=10)
-X_train, X_val, Y_train, Y_val = train_test_split(X_train_val, Y_train_val, test_size=0.3, random_state=10)
-
-# In[3] 데이터 인코딩
-
-
-
-# In[4-1] 데이터 스케일링: StandardScaler
-from sklearn.preprocessing import MinMaxScaler, StandardScaler
-
-ss = StandardScaler()
-
-ss.fit_transform(X_train)
-ss.transform(X_val)
-ss.transform(X_test)
 
 # In[] 1. 모델: linear regression model
 from sklearn.linear_model import LinearRegression
