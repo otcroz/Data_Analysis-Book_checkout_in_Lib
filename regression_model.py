@@ -151,14 +151,13 @@ plt.rcParams['axes.unicode_minus'] =False
 #plt.show()
 #filter_data.info()
 
-dobong_data_new = lib_data_dict[4708]
-
 # 2) 변수별 히스토그램을 통해 도봉구 도서관 데이터 분포 확인
-dobong_data_new.hist(bins=50, figsize=(20,15))
+data_dobong.hist(bins=50, figsize=(20,15))
 
 # In[] 3) 특정 도서관에 대해 상관관계 분석
 # 상관관계 분석 및 히트맵으로 시각화
-heatmap_data = lib_data_dict[lib_code_arr[7]].drop(columns=['도서관코드'])
+heatmap_data = lib_data_dict[lib_code_arr[1]].drop(columns=['도서관코드'])
+
 res_corr = heatmap_data.corr(method = 'pearson')
 colormap = plt.cm.RdBu
 plt.figure(figsize=(10, 8), dpi=100)
@@ -169,16 +168,16 @@ sns.heatmap(res_corr, linewidths = 0.1, vmax = 1.0,
 plt.title('변수의 상관관계', size=16)
 plt.show()
 
+# In[]
 # 상관관계 분석 및 산점도로 시각화
 sns.pairplot(heatmap_data, hue='대출인원수')
 
 # In[2] 데이터 분할
 from sklearn.model_selection import train_test_split
 # '구'
-X = filter_data[['월','일','요일','미세먼지농도','초미세먼지농도','평균기온','최고기온','최저기온','강수량']]
+X = filter_data[['요일','미세먼지농도','초미세먼지농도','평균기온','최고기온','강수량']]
 Y = filter_data[['대출인원수']]
 
-filter_data.info()
 X_train_val, X_test, Y_train_val, Y_test = train_test_split(X, Y, test_size=0.3, random_state=10)
 X_train, X_val, Y_train, Y_val = train_test_split(X_train_val, Y_train_val, test_size=0.3, random_state=10)
 
@@ -205,38 +204,27 @@ lr.score(X_train, Y_train)
 
 
 # In[] 1.2 모델 검증
-print(lr.coef_) # 기울기, 컬럼 별 기울기
-print(lr.intercept_) # y절편
+print("coef_: ", lr.coef_) # 기울기, 컬럼 별 기울기
+print("intercept_: ", lr.intercept_) # y절편
 
-# 예측값 - 실제값 차이
-residual = pred - Y_test
-
-# SSE: 잔차를 제곱한 합
-SSE = (residual**2).sum()
-print('SSE: ', SSE)
-# SST: y의 표준편차를 제곱한 합
-SST = ((pred - pred.mean())**2).sum()
-print('SST: ', SST)
-
-# 결정 계수 R: 1에 가까울수록 '설명력'이 높다. 정확한 예측 가능
-R_sqaured = 1 - (SSE/SST)
-print("결정 계수: ", R_sqaured)
+pred = lr.predict(X_val)
 
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
-pred = lr.predict(X_val)
+
 MAE = mean_absolute_error(Y_val, pred)
 MSE = mean_squared_error(Y_val, pred)
 RMSE = np.sqrt(MSE)
 R2 = r2_score(Y_val, pred)
 
-print(MAE, MSE, RMSE, R2)
-
-print(lr.coef_)
-print(lr.intercept_)
+print('MAE: ', MAE)
+print('MSE: ', MSE)
+print('RMSE: ', RMSE)
+print('R2: ', R2)
+print('Test set Score: ', lr.score(X_test, Y_test))
 
 # In[] 1.3. 모델 테스트
 
-pred = lr.predict(X_test)
+pred = lr.predict(X_test[:5])
 print(pred.round())
 
 # In[] 회귀 분석 결과를 산점도로 시각화
@@ -245,14 +233,17 @@ import seaborn as sns
 
 fig, axs = plt.subplots(figsize=(16, 16), ncols=3, nrows=2)
 
-x_features = ['평균기온', '최고기온', '평균풍속', '강수량' , '미세먼지농도']
-plot_color = ['r', 'b', 'y', 'g', 'r']
+data_dobong.요일 = data_dobong.요일.astype('float64')
+data_dobong.요일.dtype
+x_features = ['요일', '미세먼지농도','초미세먼지농도','평균기온','최고기온','강수량']
+plot_color = ['r', 'b', 'y', 'g', 'r', 'b']
 
 for i, feature in enumerate(x_features):
       row = int(i/3)
       col = i%3
       sns.regplot(x=feature, y='대출인원수', data=data_dobong, ax=axs[row][col], color=plot_color[i])
-      
+data_dobong.요일 = data_dobong.요일.astype('object')      
+
 
 # In[] 2. 모델: decision tree regression
 
@@ -276,11 +267,13 @@ results_df = pd.DataFrame(result_grid)
 params_df = results_df['params'].apply(pd.Series)
 results_df = pd.concat([results_df, params_df], axis=1)
 
+# In[]
 # 그리드 서치: 하이퍼파리미터 값에 따른 훈련데이터와 테스트데이터의 정확도(accuracy) 그래프
 import matplotlib.pyplot as plt
 plt.plot(results_df['max_depth'], results_df['mean_train_score'], label="Train")
 plt.plot(results_df['max_depth'], results_df['mean_test_score'], label="Test")
 plt.legend()
+plt.show()
 
 import matplotlib.pyplot as plt
 plt.plot(results_df['max_features'], results_df['mean_train_score'], label="Train")
@@ -296,7 +289,10 @@ MSE = mean_squared_error(Y_val, pred_dtr)
 RMSE = np.sqrt(MSE)
 R2 = r2_score(Y_val, pred_dtr)
 
-print(MAE, MSE, RMSE, R2)
+print('MAE: ', MAE)
+print('MSE: ', MSE)
+print('RMSE: ', RMSE)
+print('R2: ', R2)
 
 # 정확도가 가장 높은 하이퍼파라미터 및 정확도 제시
 print('최적 하이퍼 파라미터:\n', grid_search.best_params_)
@@ -332,21 +328,25 @@ results_df = pd.DataFrame(result_grid)
 params_df = results_df['params'].apply(pd.Series)
 results_df = pd.concat([results_df, params_df], axis=1)
 
+# In[]
 # 그리드 서치: 하이퍼파리미터(n_estimators)값에 따른 훈련데이터와 테스트데이터의 정확도(accuracy) 그래프
 import matplotlib.pyplot as plt
 plt.plot(results_df['n_estimators'], results_df['mean_train_score'], label="Train")
 plt.plot(results_df['n_estimators'], results_df['mean_test_score'], label="Test")
 plt.legend()
+plt.show()
 
 import matplotlib.pyplot as plt
 plt.plot(results_df['max_depth'], results_df['mean_train_score'], label="Train")
 plt.plot(results_df['max_depth'], results_df['mean_test_score'], label="Test")
 plt.legend()
+plt.show()
 
 import matplotlib.pyplot as plt
 plt.plot(results_df['max_features'], results_df['mean_train_score'], label="Train")
 plt.plot(results_df['max_features'], results_df['mean_test_score'], label="Test")
 plt.legend()
+plt.show()
 
 # In[] 3.2 모델 검증
 pred_rfr = grid_search_rfr.predict(X_val)
@@ -355,6 +355,11 @@ from sklearn.metrics import mean_squared_error, mean_absolute_error
 MAE = mean_absolute_error(Y_val, pred_rfr)
 MSE = mean_squared_error(Y_val, pred_rfr)
 RMSE = np.sqrt(MSE)
+
+print('MAE: ', MAE)
+print('MSE: ', MSE)
+print('RMSE: ', RMSE)
+print('R2: ', R2)
 
 # 정확도가 가장 높은 하이퍼파라미터(C) 및 정확도 제시
 print("Best Parameter: {}".format(grid_search_rfr.best_params_))
@@ -370,18 +375,51 @@ pred_rfr = grid_search_rfr.predict(X_test[:5])
 print(pred_rfr.round())
 
 # In[] 3개의 모델 중 가장 성능이 좋은 모델로 테스트 데이터로 예측하기
+# 랜덤 포레스트 회귀분석 모델
+pred_rfr = grid_search_rfr.predict(X_test[:5])
+print(pred_rfr.round())
 
+# In[] 의사 결정트리 회귀모델 이미지 저장
+#import graphviz
+import os
+from sklearn.tree import export_graphviz
 
-# In[] 사용자 입력값으로 예측하기
-# 구를 입력하기
-region = input('지역을 입력하세요(e.g.): ')
+dt_dot_data = tree.export_graphviz(grid_search, out_file = None,
+                                  feature_names = ['요일', '미세먼지농도','초미세먼지농도','평균기온','최고기온','강수량'],
+                                  class_names = target_name,
+                                  filled = True, rounded = True,
+                                  node_ids=True,
+                                  special_characters = True,
+                                  fontname="Malgun Gothic")
+dt_graph = pydotplus.graph_from_dot_data(dt_dot_data)
 
-# 도서관 목록 보여주면서 도서관 입력 유도
-print('해당 지역의 도서관은 ')
-print('도서관 목록 출력')
-print('이렇게 총' + count + '곳이 있습니다.')
+# 생성된 .dot 파일을 .png로 변환
+from subprocess import call
+call(['dot', '-Tpng', 'None', '-o', 'decision-tree-regression.png', '-Gdpi=50'])
 
-# 특정 도서관에 대한 기상요건 입력
+# In[]
+from IPython.display import Image
 
+Image(filename = 'decision-tree-regression.png')
 
-# 예측 후 출력
+# In[] 랜덤 포레스트 회귀모델 이미지 저장
+#import graphviz
+import os
+estimator = grid_search_rfr.best_estimator_[5]
+from sklearn.tree import export_graphviz
+export_graphviz(estimator, out_file='tree.dot', 
+                feature_names = ['요일', '미세먼지농도','초미세먼지농도','평균기온','최고기온','강수량'],
+                rounded = True, proportion = False, 
+                precision = 2, filled = True,
+                node_ids=True,
+                special_characters=True,
+                fontname="Malgun Gothic")
+
+# 생성된 .dot 파일을 .png로 변환
+from subprocess import call
+call(['dot', '-Tpng', 'tree.dot', '-o', 'random-forest-regression.png', '-Gdpi=50'])
+
+# In[]
+from IPython.display import Image
+
+Image(filename = 'random-forest-regression.png')
