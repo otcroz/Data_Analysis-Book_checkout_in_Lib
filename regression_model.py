@@ -7,27 +7,6 @@ data = pd.DataFrame(data)
 data.info()
 #data.describe()
 
-# In[] 데이터 처리: 도봉구 공공도서관으로 모델 구축
-data = data[data.구 == '도봉구']
-data.도서관코드.unique() # 9곳의 도서c관
-
-holidays_korea_2023 = [
-    '2023-01-01',  # 신정
-    '2023-02-01',  # 설날
-    '2023-02-02',  # 설날 대체공휴일
-    '2023-03-01',  # 삼일절
-    '2023-05-05',  # 어린이날
-    '2023-05-07',  # 부처님 오신 날
-    '2023-06-06',  # 현충일
-    '2023-08-15',  # 광복절
-    '2023-09-09',  # 추석 연휴
-    '2023-10-03',  # 개천절
-    '2023-10-09',  # 한글날
-    '2023-12-25',  # 크리스마스
-]
-
-data = data[~data.날짜.isin(holidays_korea_2023)]
-
 # In[] 데이터 인코딩: 요일
 
 data.요일.replace('월', 0, inplace=True)
@@ -109,8 +88,35 @@ cond_humi = (data['평균습도']<Q3_humi+IQR_humi*1.5)& (data['평균습도']>Q
 data_IQR=data[cond_borrow & cond_dust & cond_dust_small & cond_temp & cond_temp_h & cond_temp_l & cond_humi]
 data_IQR.boxplot(column='대출인원수', return_type='both')
 
+# In[] 데이터 처리: 도봉구 공공도서관으로 모델 구축, 공휴일에 대한 처리
+data_dobong = data_IQR[data_IQR.구 == '도봉구']
+data_dobong.도서관코드.unique() # 9곳의 도서관
+
+holidays_korea_2023 = [
+    '2023-01-01',  # 신정
+    '2023-01-21',  # 설날
+    '2023-01-22',  # 설날
+    '2023-01-23',  # 설날
+    '2023-01-04',  # 설날 대체공휴일
+    '2023-03-01',  # 삼일절
+    '2023-05-05',  # 어린이날
+    '2023-05-27',  # 부처님 오신 날
+    '2023-05-29',  # 대체공휴일
+    '2023-06-06',  # 현충일
+    '2023-08-15',  # 광복절
+    '2023-09-28',  # 추석 연휴
+    '2023-09-29',  # 추석 연휴
+    '2023-09-30',  # 추석 연휴
+    '2023-10-03',  # 개천절
+    '2023-10-09',  # 한글날
+    '2023-12-25',  # 크리스마스
+]
+
+data_dobong = data_dobong[~data_dobong.날짜.isin(holidays_korea_2023)]
+data_dobong.info()
+
 # In[] 도서관별로 데이터를 나누어서 저장하기
-filter_data = data_IQR[['도서관코드','월','일','요일','미세먼지농도','초미세먼지농도','평균풍속','평균기온','최고기온','최저기온',
+filter_data = data_dobong[['도서관코드','월','일','요일','미세먼지농도','초미세먼지농도','평균풍속','평균기온','최고기온','최저기온',
                                '평균습도','강수량','대출인원수']]
 
 grouped_data = filter_data.groupby('도서관코드')
@@ -123,9 +129,9 @@ for library_code, group in grouped_data:
     lib_data_dict[library_code] = group
 
 # test
-for library_code, data in lib_data_dict.items():
+for library_code, item in lib_data_dict.items():
     print(f"Library Code: {library_code}")
-    print(data.head())  # 각 그룹의 첫 5개 행을 출력
+    print(item.head())  # 각 그룹의 첫 5개 행을 출력
 
 # In[] 데이터 시각화
 
@@ -145,12 +151,14 @@ plt.rcParams['axes.unicode_minus'] =False
 #plt.show()
 #filter_data.info()
 
+dobong_data_new = lib_data_dict[4708]
+
 # 2) 변수별 히스토그램을 통해 도봉구 도서관 데이터 분포 확인
-filter_data.hist(bins=50, figsize=(20,15))
+dobong_data_new.hist(bins=50, figsize=(20,15))
 
 # In[] 3) 특정 도서관에 대해 상관관계 분석
 # 상관관계 분석 및 히트맵으로 시각화
-heatmap_data = lib_data_dict[lib_code_arr[0]].drop(columns=['도서관코드'])
+heatmap_data = lib_data_dict[lib_code_arr[7]].drop(columns=['도서관코드'])
 res_corr = heatmap_data.corr(method = 'pearson')
 colormap = plt.cm.RdBu
 plt.figure(figsize=(10, 8), dpi=100)
@@ -179,9 +187,9 @@ from sklearn.preprocessing import MinMaxScaler, StandardScaler
 
 ss = StandardScaler()
 
-ss.fit_transform(X_train)
-ss.transform(X_val)
-ss.transform(X_test)
+X_train = ss.fit_transform(X_train)
+X_val = ss.transform(X_val)
+X_test = ss.transform(X_test)
 
 # In[] 1. 모델: linear regression model
 from sklearn.linear_model import LinearRegression
@@ -217,11 +225,6 @@ print(pred.round())
 from sklearn.model_selection import GridSearchCV
 param_grid={'max_depth': [10, 20, 30, 40, 50, 100]}
 
-# 랜덤서치
-from sklearn.model_selection import RandomizedSearchCV
-from scipy.stats import randint, uniform
-param_distribs={'max_depth': [10, 20, 30, 40, 50, 100]}
-
 
 from sklearn.tree import DecisionTreeRegressor
 
@@ -231,13 +234,6 @@ dtr = DecisionTreeRegressor()
 grid_search=GridSearchCV(dtr, param_grid, cv=5, return_train_score=True)
 grid_search.fit(X_train, Y_train)
 
-# 랜덤 서치 + 교차검증
-random_search=RandomizedSearchCV(dtr, 
-                                 param_distributions=param_distribs, cv=5,
-                                 n_iter=100, # 랜덤횟수 디폴트=10
-                                return_train_score=True)
-random_search.fit(X_train, Y_train)
-
 # 그리드서치 하이퍼파라미터별 상세 결과값
 result_grid= pd.DataFrame(grid_search.cv_results_)
 
@@ -246,20 +242,6 @@ params_df = results_df['params'].apply(pd.Series)
 results_df = pd.concat([results_df, params_df], axis=1)
 
 # 그리드 서치: 하이퍼파리미터(C)값에 따른 훈련데이터와 테스트데이터의 정확도(accuracy) 그래프
-import matplotlib.pyplot as plt
-plt.plot(results_df['max_depth'], results_df['mean_train_score'], label="Train")
-plt.plot(results_df['max_depth'], results_df['mean_test_score'], label="Test")
-plt.legend()
-
-# 랜덤서치 하이퍼파라미터별 상세 결과값
-result_random = random_search.cv_results_
-
-results_df = pd.DataFrame(result_random)
-params_df = results_df['params'].apply(pd.Series)
-results_df = pd.concat([results_df, params_df], axis=1)
-
-
-# 랜덤 서치: 하이퍼파리미터(C)값에 따른 훈련데이터와 테스트데이터의 정확도(accuracy) 그래프
 import matplotlib.pyplot as plt
 plt.plot(results_df['max_depth'], results_df['mean_train_score'], label="Train")
 plt.plot(results_df['max_depth'], results_df['mean_test_score'], label="Test")
@@ -289,19 +271,11 @@ print("Test set Score: {:.3f}".format(grid_search.score(X_val, Y_val)))
 pred_dtr = grid_search.predict(X_test)
 print(pred_dtr)
 
-# 랜덤 서치
-pred_dtr = random_search.predict(X_test)
-print(pred_dtr)
-
 # In[] 3. 모델: random forest regression
 # 그리드 서치
 from sklearn.model_selection import GridSearchCV
 param_grid={'n_estimators': [1, 5, 10, 20, 30]}
 
-# 랜덤서치
-from sklearn.model_selection import RandomizedSearchCV
-from scipy.stats import randint, uniform
-param_distribs={'n_estimators': [1, 5, 10, 20, 30]}
 
 
 from sklearn.ensemble import RandomForestRegressor
@@ -312,12 +286,6 @@ rfr = RandomForestRegressor()
 grid_search=GridSearchCV(rfr, param_grid, cv=5, return_train_score=True)
 grid_search.fit(X_train, Y_train)
 
-# 랜덤 서치 + 교차검증
-random_search=RandomizedSearchCV(rfr, 
-                                 param_distributions=param_distribs, cv=5,
-                                 n_iter=100, # 랜덤횟수 디폴트=10
-                                return_train_score=True)
-random_search.fit(X_train, Y_train)
 
 # 그리드서치 하이퍼파라미터별 상세 결과값
 result_grid= pd.DataFrame(grid_search.cv_results_)
@@ -332,20 +300,6 @@ plt.plot(results_df['n_estimators'], results_df['mean_train_score'], label="Trai
 plt.plot(results_df['n_estimators'], results_df['mean_test_score'], label="Test")
 plt.legend()
 
-# 랜덤서치 하이퍼파라미터별 상세 결과값
-result_random = random_search.cv_results_
-
-results_df = pd.DataFrame(result_random)
-params_df = results_df['params'].apply(pd.Series)
-results_df = pd.concat([results_df, params_df], axis=1)
-
-
-# 랜덤 서치: 하이퍼파리미터(C)값에 따른 훈련데이터와 테스트데이터의 정확도(accuracy) 그래프
-import matplotlib.pyplot as plt
-plt.plot(results_df['n_estimators'], results_df['mean_train_score'], label="Train")
-plt.plot(results_df['n_estimators'], results_df['mean_test_score'], label="Test")
-plt.legend()
-
 # In[] 3.2 모델 검증
 from sklearn.metrics import mean_squared_error, mean_absolute_error
 MAE = mean_absolute_error(Y_val, pred)
@@ -353,11 +307,11 @@ MSE = mean_squared_error(Y_val, pred)
 RMSE = np.sqrt(MSE)
 
 # 정확도가 가장 높은 하이퍼파라미터(C) 및 정확도 제시
-print("Best Parameter: {}".format(random_search.best_params_))
-print("Best Cross-validity Score: {:.3f}".format(random_search.best_score_))
+print("Best Parameter: {}".format(grid_search.best_params_))
+print("Best Cross-validity Score: {:.3f}".format(grid_search.best_score_))
 
 # 테스트 데이터에 최적 텀색 하이퍼 파라미터 적용 정확도 결과
-print("Test set Score: {:.3f}".format(random_search.score(X_val, Y_val)))
+print("Test set Score: {:.3f}".format(grid_search.score(X_val, Y_val)))
 
 # In[] 3.3 모델 테스트
 
@@ -365,9 +319,6 @@ print("Test set Score: {:.3f}".format(random_search.score(X_val, Y_val)))
 pred_rfr = grid_search.predict(X_test)
 print(pred_dtr)
 
-# 랜덤 서치
-pred_rfr = random_search.predict(X_test)
-print(pred_dtr)
 # In[] 회귀 분석 결과를 산점도로 시각화
 coef = pd.Series(data=np.round(lr.coef_, 2), index=X.columns)
 coef.sort_values(ascending=False)
@@ -392,9 +343,14 @@ pred_rfr = rfr.predict(X_test)
 # In[] 예측하기
 
 # 구를 입력하기
+region = input('지역을 입력하세요(e.g.): ')
 
 # 도서관 목록 보여주면서 도서관 입력 유도
+print('해당 지역의 도서관은 ')
+print('도서관 목록 출력')
+print('이렇게 총' + count + '곳이 있습니다.')
 
 # 특정 도서관에 대한 기상요건 입력
+
 
 # 예측 후 출력
