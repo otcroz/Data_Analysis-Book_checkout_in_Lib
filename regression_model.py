@@ -205,6 +205,23 @@ lr.score(X_train, Y_train)
 
 
 # In[] 1.2 모델 검증
+print(lr.coef_) # 기울기, 컬럼 별 기울기
+print(lr.intercept_) # y절편
+
+# 예측값 - 실제값 차이
+residual = pred - Y_test
+
+# SSE: 잔차를 제곱한 합
+SSE = (residual**2).sum()
+print('SSE: ', SSE)
+# SST: y의 표준편차를 제곱한 합
+SST = ((pred - pred.mean())**2).sum()
+print('SST: ', SST)
+
+# 결정 계수 R: 1에 가까울수록 '설명력'이 높다. 정확한 예측 가능
+R_sqaured = 1 - (SSE/SST)
+print("결정 계수: ", R_sqaured)
+
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 pred = lr.predict(X_val)
 MAE = mean_absolute_error(Y_val, pred)
@@ -214,16 +231,34 @@ R2 = r2_score(Y_val, pred)
 
 print(MAE, MSE, RMSE, R2)
 
+print(lr.coef_)
+print(lr.intercept_)
+
 # In[] 1.3. 모델 테스트
 
 pred = lr.predict(X_test)
 print(pred.round())
 
+# In[] 회귀 분석 결과를 산점도로 시각화
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+fig, axs = plt.subplots(figsize=(16, 16), ncols=3, nrows=2)
+
+x_features = ['평균기온', '최고기온', '평균풍속', '강수량' , '미세먼지농도']
+plot_color = ['r', 'b', 'y', 'g', 'r']
+
+for i, feature in enumerate(x_features):
+      row = int(i/3)
+      col = i%3
+      sns.regplot(x=feature, y='대출인원수', data=data_dobong, ax=axs[row][col], color=plot_color[i])
+      
+
 # In[] 2. 모델: decision tree regression
 
 # 그리드 서치
 from sklearn.model_selection import GridSearchCV
-param_grid={'max_depth': [10, 20, 30, 40, 50, 100]}
+param_grid={'max_depth': [10, 20, 30, 40, 50, 100], 'max_features': [2, 3, 4, 5, 6, 7]}
 
 
 from sklearn.tree import DecisionTreeRegressor
@@ -241,10 +276,15 @@ results_df = pd.DataFrame(result_grid)
 params_df = results_df['params'].apply(pd.Series)
 results_df = pd.concat([results_df, params_df], axis=1)
 
-# 그리드 서치: 하이퍼파리미터(C)값에 따른 훈련데이터와 테스트데이터의 정확도(accuracy) 그래프
+# 그리드 서치: 하이퍼파리미터 값에 따른 훈련데이터와 테스트데이터의 정확도(accuracy) 그래프
 import matplotlib.pyplot as plt
 plt.plot(results_df['max_depth'], results_df['mean_train_score'], label="Train")
 plt.plot(results_df['max_depth'], results_df['mean_test_score'], label="Test")
+plt.legend()
+
+import matplotlib.pyplot as plt
+plt.plot(results_df['max_features'], results_df['mean_train_score'], label="Train")
+plt.plot(results_df['max_features'], results_df['mean_test_score'], label="Test")
 plt.legend()
 
 # In[] 2.2 모델 검증
@@ -258,90 +298,81 @@ R2 = r2_score(Y_val, pred_dtr)
 
 print(MAE, MSE, RMSE, R2)
 
-# 정확도가 가장 높은 하이퍼파라미터(C) 및 정확도 제시
-print("Best Parameter: {}".format(grid_search.best_params_))
-print("Best Cross-validity Score: {:.3f}".format(grid_search.best_score_))
+# 정확도가 가장 높은 하이퍼파라미터 및 정확도 제시
+print('최적 하이퍼 파라미터:\n', grid_search.best_params_)
+print('최고 예측 정확도: {0:.4f}'.format(grid_search.best_score_))
 
 # 테스트 데이터에 최적 텀색 하이퍼 파라미터 적용 정확도 결과
 print("Test set Score: {:.3f}".format(grid_search.score(X_val, Y_val)))
 
-# In[] 2.3 모델 테스트
+# In[] 2.3 테스트 데이터로 모델 예측값 출력하기
 
 # 그리드 서치
-pred_dtr = grid_search.predict(X_test)
+pred_dtr = grid_search.predict(X_test[:5])
 print(pred_dtr)
 
 # In[] 3. 모델: random forest regression
 # 그리드 서치
 from sklearn.model_selection import GridSearchCV
-param_grid={'n_estimators': [1, 5, 10, 20, 30]}
-
-
+param_grid={'n_estimators': [1, 5, 10, 20, 30], 'max_depth': [2, 3, 4, 5, 6, 7], 'max_features': [2, 3, 4, 5, 6, 7]}
 
 from sklearn.ensemble import RandomForestRegressor
 
 rfr = RandomForestRegressor()
 
 # 그리드 서치 + 교차검증
-grid_search=GridSearchCV(rfr, param_grid, cv=5, return_train_score=True)
-grid_search.fit(X_train, Y_train)
+grid_search_rfr=GridSearchCV(rfr, param_grid, cv=5, return_train_score=True)
+grid_search_rfr.fit(X_train, Y_train)
 
 
 # 그리드서치 하이퍼파라미터별 상세 결과값
-result_grid= pd.DataFrame(grid_search.cv_results_)
+result_grid= pd.DataFrame(grid_search_rfr.cv_results_)
 
 results_df = pd.DataFrame(result_grid)
 params_df = results_df['params'].apply(pd.Series)
 results_df = pd.concat([results_df, params_df], axis=1)
 
-# 그리드 서치: 하이퍼파리미터(C)값에 따른 훈련데이터와 테스트데이터의 정확도(accuracy) 그래프
+# 그리드 서치: 하이퍼파리미터(n_estimators)값에 따른 훈련데이터와 테스트데이터의 정확도(accuracy) 그래프
 import matplotlib.pyplot as plt
 plt.plot(results_df['n_estimators'], results_df['mean_train_score'], label="Train")
 plt.plot(results_df['n_estimators'], results_df['mean_test_score'], label="Test")
 plt.legend()
 
+import matplotlib.pyplot as plt
+plt.plot(results_df['max_depth'], results_df['mean_train_score'], label="Train")
+plt.plot(results_df['max_depth'], results_df['mean_test_score'], label="Test")
+plt.legend()
+
+import matplotlib.pyplot as plt
+plt.plot(results_df['max_features'], results_df['mean_train_score'], label="Train")
+plt.plot(results_df['max_features'], results_df['mean_test_score'], label="Test")
+plt.legend()
+
 # In[] 3.2 모델 검증
+pred_rfr = grid_search_rfr.predict(X_val)
+
 from sklearn.metrics import mean_squared_error, mean_absolute_error
-MAE = mean_absolute_error(Y_val, pred)
-MSE = mean_squared_error(Y_val, pred)
+MAE = mean_absolute_error(Y_val, pred_rfr)
+MSE = mean_squared_error(Y_val, pred_rfr)
 RMSE = np.sqrt(MSE)
 
 # 정확도가 가장 높은 하이퍼파라미터(C) 및 정확도 제시
-print("Best Parameter: {}".format(grid_search.best_params_))
-print("Best Cross-validity Score: {:.3f}".format(grid_search.best_score_))
+print("Best Parameter: {}".format(grid_search_rfr.best_params_))
+print("Best Cross-validity Score: {:.3f}".format(grid_search_rfr.best_score_))
 
 # 테스트 데이터에 최적 텀색 하이퍼 파라미터 적용 정확도 결과
-print("Test set Score: {:.3f}".format(grid_search.score(X_val, Y_val)))
+print("Test set Score: {:.3f}".format(grid_search_rfr.score(X_val, Y_val)))
 
 # In[] 3.3 모델 테스트
 
 # 그리드 서치
-pred_rfr = grid_search.predict(X_test)
-print(pred_dtr)
+pred_rfr = grid_search_rfr.predict(X_test[:5])
+print(pred_rfr.round())
 
-# In[] 회귀 분석 결과를 산점도로 시각화
-coef = pd.Series(data=np.round(lr.coef_, 2), index=X.columns)
-coef.sort_values(ascending=False)
+# In[] 3개의 모델 중 가장 성능이 좋은 모델로 테스트 데이터로 예측하기
 
-import matplotlib.pyplot as plt
-import seaborn as sns
 
-fig, axs = plt.subplots(figsize=(16, 16), ncols=3, nrows=2)
-
-x_features = ['월', '요일', '평균기온', '평균풍속', '최고기온']
-plot_color = ['r', 'b', 'y', 'g', 'r']
-
-for i, feature in enumerate(x_features):
-      row = int(i/3)
-      col = i%3
-      sns.regplot(x=feature, y='대출인원수', data=data, ax=axs[row][col], color=plot_color[i])
-
-pred_lr = lr.predict(X_test)
-
-pred_rfr = rfr.predict(X_test)
-
-# In[] 예측하기
-
+# In[] 사용자 입력값으로 예측하기
 # 구를 입력하기
 region = input('지역을 입력하세요(e.g.): ')
 
