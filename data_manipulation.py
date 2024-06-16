@@ -21,7 +21,7 @@ lib_info_seoul_data.to_csv('./clean_data/서울시_공공_도서관_정보.csv',
 
 
 # In[] 도서관 대출내역 불러오기
-file_date = '202312-1'
+file_date = '202310-9'
 # C:/Users/dbtnd/Downloads/NL_CO_LOAN_PUB_202302-16.csv
 lib_borrow = pd.read_csv('C:/Users/dbtnd/Downloads/NL_CO_LOAN_PUB_' + file_date +'.csv', encoding="utf-8")
 lib_info_seoul_data = pd.read_csv('./clean_data/서울시_공공_도서관_정보.csv', encoding="utf-8")
@@ -73,6 +73,8 @@ print(pd.DataFrame((lib_borrow_seoul.groupby(['MBER_SEQ_NO_VALUE', 'LON_DE'])['B
 if len(lib_borrow_seoul) > 0:
     lib_borrow_seoul.to_csv('./clean_data/public_library/서울시_공공_대출내역_' + file_date +'.csv', sep=',', index=False, encoding="utf-8-sig")
 else: print('no data!')
+# In[] 데이터 확인하기
+
 
 # In[] 1차 가공했던 도서관 대출 내역 concat, 특정 날짜에 도서관에 대출한 사람 수 grouping
 
@@ -90,19 +92,23 @@ for filename in os.listdir(folder_path):
 
 # 모든 데이터프레임을 하나로 합치기
 combined_df = pd.concat(df_list, ignore_index=True)
+combined_df.info()
 
 # 서울시, 구 추가
 combined_df['ONE_AREA_NM'] = combined_df['LBRRY_CD'].map(lib_info_seoul_data.set_index('LBRRY_CD')['ONE_AREA_NM'])
 combined_df['TWO_AREA_NM'] = combined_df['LBRRY_CD'].map(lib_info_seoul_data.set_index('LBRRY_CD')['TWO_AREA_NM'])
+combined_df['LBRRY_NM'] = combined_df['LBRRY_CD'].map(lib_info_seoul_data.set_index('LBRRY_CD')['LBRRY_NM'])
 
-# 중복된 행 삭제
+# 날짜 열 yy-mm-dd 변환, 중복된 행 삭제
+combined_df.isnull().sum()
+combined_df['LON_DE'] = pd.to_datetime(combined_df['LON_DE']).dt.date
 combined_df.drop_duplicates(subset=['LBRRY_CD', 'MBER_SEQ_NO_VALUE', 'LON_DE'], inplace=True)
 
 # 결과 출력 (또는 파일로 저장)
-print(combined_df)
+print(combined_df.head())
 
 combined_df_count = combined_df.groupby([
-    'LBRRY_CD', 'ONE_AREA_NM', 'TWO_AREA_NM',  'LON_DE', 'YEAR', 'MONTH', 'DAY', 'WEEKDAY'])['MBER_SEQ_NO_VALUE'].count().reset_index().rename(columns={'MBER_SEQ_NO_VALUE': 'COUNT'})
+    'LBRRY_CD', 'LBRRY_NM', 'ONE_AREA_NM', 'TWO_AREA_NM',  'LON_DE', 'YEAR', 'MONTH', 'DAY', 'WEEKDAY'])['MBER_SEQ_NO_VALUE'].count().reset_index().rename(columns={'MBER_SEQ_NO_VALUE': 'COUNT'})
 
 # 필요없는 컬럼 drop
 combined_df_count.info()
@@ -173,7 +179,7 @@ weather_seoul_data.info()
 air_person_seoul_data.info()
 
 # 컬럼 이름 수정
-today_borrow_count_data.rename(columns={'LBRRY_CD': '도서관코드','LON_DE': '날짜', 'YEAR': '연도', 'MONTH': '월', 'DAY': '일', 
+today_borrow_count_data.rename(columns={'LBRRY_CD': '도서관코드','LBRRY_NM':'도서관이름','LON_DE': '날짜', 'YEAR': '연도', 'MONTH': '월', 'DAY': '일', 
                                         'WEEKDAY': '요일', 'COUNT':"대출인원수", "ONE_AREA_NM": "시", "TWO_AREA_NM": "구" }, inplace=True)
 weather_seoul_data.rename(columns={'일시': '날짜', '평균습도(%rh)': '평균습도', '평균기온(℃)': '평균기온', 
                                    '최고기온(℃)' :'최고기온', '최저기온(℃)':'최저기온', '강수량(mm)': '강수량', '평균풍속(m/s)': '평균풍속'} ,inplace=True)
