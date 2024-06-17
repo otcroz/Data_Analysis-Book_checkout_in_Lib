@@ -330,19 +330,16 @@ results_df = pd.concat([results_df, params_df], axis=1)
 
 # In[]
 # 그리드 서치: 하이퍼파리미터(n_estimators)값에 따른 훈련데이터와 테스트데이터의 정확도(accuracy) 그래프
-import matplotlib.pyplot as plt
 plt.plot(results_df['n_estimators'], results_df['mean_train_score'], label="Train")
 plt.plot(results_df['n_estimators'], results_df['mean_test_score'], label="Test")
 plt.legend()
 plt.show()
 
-import matplotlib.pyplot as plt
 plt.plot(results_df['max_depth'], results_df['mean_train_score'], label="Train")
 plt.plot(results_df['max_depth'], results_df['mean_test_score'], label="Test")
 plt.legend()
 plt.show()
 
-import matplotlib.pyplot as plt
 plt.plot(results_df['max_features'], results_df['mean_train_score'], label="Train")
 plt.plot(results_df['max_features'], results_df['mean_test_score'], label="Test")
 plt.legend()
@@ -383,19 +380,17 @@ print(pred_rfr.round())
 #import graphviz
 import os
 from sklearn.tree import export_graphviz
-
-dt_dot_data = tree.export_graphviz(grid_search, out_file = None,
-                                  feature_names = ['요일', '미세먼지농도','초미세먼지농도','평균기온','최고기온','강수량'],
-                                  class_names = target_name,
-                                  filled = True, rounded = True,
-                                  node_ids=True,
-                                  special_characters = True,
-                                  fontname="Malgun Gothic")
-dt_graph = pydotplus.graph_from_dot_data(dt_dot_data)
+export_graphviz(grid_search.best_estimator_, out_file='tree.dot', 
+                feature_names = ['요일', '미세먼지농도','초미세먼지농도','평균기온','최고기온','강수량'],
+                rounded = True, proportion = False, 
+                precision = 2, filled = True,
+                node_ids=True,
+                special_characters=True,
+                fontname="Malgun Gothic")
 
 # 생성된 .dot 파일을 .png로 변환
 from subprocess import call
-call(['dot', '-Tpng', 'None', '-o', 'decision-tree-regression.png', '-Gdpi=50'])
+call(['dot', '-Tpng', 'tree.dot', '-o', 'decision-tree-regression.png', '-Gdpi=50'])
 
 # In[]
 from IPython.display import Image
